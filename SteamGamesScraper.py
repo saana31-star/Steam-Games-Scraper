@@ -42,7 +42,7 @@ DISCARDED_FILE   = 'discarded.json'
 NOTRELEASED_FILE = 'notreleased.json'
 DEFAULT_SLEEP    = 1.5
 DEFAULT_RETRIES  = 4
-DEFAULT_AUTOSAVE = 100
+DEFAULT_AUTOSAVE = 10
 DEFAULT_TIMEOUT  = 10
 DEFAULT_CURRENCY = 'us'
 DEFAULT_LANGUAGE = 'en'
@@ -194,98 +194,29 @@ def SteamSpyRequest(appID, retryTime, successRequestCount, errorRequestCount, re
 
 def ParseSteamGame(app):
   '''
-  Parse game info.
+  Streamlined parser for ML pipeline metadata.
   '''
   game = {}
-  game['name'] = app['name'].strip()
-  game['release_date'] = app['release_date']['date'] if 'release_date' in app and not app['release_date']['coming_soon'] else ''
-  game['required_age'] = int(str(app['required_age']).replace('+', '')) if 'required_age' in app else 0
-
-  if app['is_free'] or 'price_overview' not in app:
-    game['price'] = 0.0
+  game['name'] = app.get('name', 'Unknown').strip()
+  
+  # 1. Release Date
+  game['release_date'] = app['release_date']['date'] if 'release_date' in app and not app['release_date'].get('coming_soon') else ''
+  
+  # 2. Base Price
+  if app.get('is_free') or 'price_overview' not in app:
+    game['price'] = 'Free'
   else:
-    game['price'] = PriceToFloat(app['price_overview']['final_formatted'])
+    game['price'] = app['price_overview'].get('initial_formatted', app['price_overview'].get('final_formatted', 'Unknown'))
 
-  game['dlc_count'] = len(app['dlc']) if 'dlc' in app else 0
-  game['detailed_description'] = app['detailed_description'].strip() if 'detailed_description' in app else ''
-  game['about_the_game'] = app['about_the_game'].strip() if 'about_the_game' in app else ''
-  game['short_description'] = app['short_description'].strip() if 'short_description' in app else ''
-  game['reviews'] = app['reviews'].strip() if 'reviews' in app else ''
-  game['header_image'] = app['header_image'].strip() if 'header_image' in app and app['header_image'] else ''
-  game['website'] = app['website'].strip() if 'website' in app and app['website'] is not None else ''
-  game['support_url'] = app['support_info']['url'].strip() if 'support_info' in app else ''
-  game['support_email'] = app['support_info']['email'].strip() if 'support_info' in app else ''
-  game['windows'] = True if app['platforms']['windows'] else False
-  game['mac'] = True if app['platforms']['mac'] else False
-  game['linux'] = True if app['platforms']['linux'] else False
-  game['metacritic_score'] = int(app['metacritic']['score']) if 'metacritic' in app else 0
-  game['metacritic_url'] = app['metacritic']['url'] if 'metacritic' in app else ''
-  game['achievements'] = int(app['achievements']['total']) if 'achievements' in app else 0
-  game['recommendations'] = app['recommendations']['total'] if 'recommendations' in app else 0
-  game['notes'] = app['content_descriptors']['notes'] if 'content_descriptors' in app and app['content_descriptors']['notes'] is not None else ''
+  # 3. GameType Classification (Single/Multi/Both)
+  categories = [c['description'].lower() for c in app.get('categories', [])]
+  is_single = 'single-player' in categories
+  is_multi = any(x in categories for x in ['multi-player', 'online co-op', 'mmo'])
+  game['type'] = "Both" if (is_single and is_multi) else ("Multiplayer" if is_multi else "Single-player")
 
-  game['supported_languages'] = []
-  game['full_audio_languages'] = []
-
-  if 'supported_languages' in app:
-    languagesApp = app['supported_languages']
-    languagesApp = re.sub('<[^<]+?>', '', languagesApp)
-    languagesApp = languagesApp.replace('languages with full audio support', '')
-
-    languages = languagesApp.split(', ')
-    for lang in languages:
-      if '*' in lang:
-        game['full_audio_languages'].append(lang.replace('*', ''))
-      game['supported_languages'].append(lang.replace('*', ''))
-
-  game['packages'] = []
-  if 'package_groups' in app:
-    for package in app['package_groups']:
-      subs = []
-      if 'subs' in package:
-        for sub in package['subs']:
-          subs.append({'text': SanitizeText(sub['option_text']),
-                       'description': sub['option_description'],
-                       'price': round(float(sub['price_in_cents_with_discount']) * 0.01, 2) }) 
-
-      game['packages'].append({'title': SanitizeText(package['title']), 'description': SanitizeText(package['description']), 'subs': subs})
-
-  game['developers'] = []
-  if 'developers' in app:
-    for developer in app['developers']:
-      game['developers'].append(developer.strip())
-
-  game['publishers'] = []
-  if 'publishers' in app:
-    for publisher in app['publishers']:
-      game['publishers'].append(publisher.strip())
-
-  game['categories'] = []
-  if 'categories' in app:
-    for category in app['categories']:
-      game['categories'].append(category['description'])
-
-  game['genres'] = []
-  if 'genres' in app:
-    for genre in app['genres']:
-      game['genres'].append(genre['description'])
-
-  game['screenshots'] = []
-  if 'screenshots' in app:
-    for screenshot in app['screenshots']:
-      game['screenshots'].append(screenshot['path_full'])
-
-  game['movies'] = []
-  if 'movies' in app:
-    for movie in app['movies']:
-      if 'mp4' in movie:
-        game['movies'].append(movie['mp4']['max'])
-
-  game['detailed_description'] = SanitizeText(game['detailed_description'])
-  game['about_the_game'] = SanitizeText(game['about_the_game'])
-  game['short_description'] = SanitizeText(game['short_description'])
-  game['reviews'] = SanitizeText(game['reviews'])
-  game['notes'] = SanitizeText(game['notes'])
+  # 4. Review Classification
+  review_total = app.get('recommendations', {}).get('total', 0)
+  game['reviews_class'] = "Positive" if review_total > 50 else "Mixed"
 
   return game
 
@@ -399,34 +330,6 @@ def Scraper(dataset, notreleased, discarded, args, steam_api_key, appIDs = None)
           if app:
             game = ParseSteamGame(app)
             if game['release_date'] != '':
-              if args.steamspy:
-                extra = SteamSpyRequest(appID, min(4, args.sleep), successRequestCount, errorRequestCount, args.retries)
-                if extra != None:
-                  game['user_score'] = extra['userscore']
-                  game['score_rank'] = extra['score_rank']
-                  game['positive'] = extra['positive']
-                  game['negative'] = extra['negative']
-                  game['estimated_owners'] = extra['owners'].replace(',', '').replace('..', '-')
-                  game['average_playtime_forever'] = extra['average_forever']
-                  game['average_playtime_2weeks'] = extra['average_2weeks']
-                  game['median_playtime_forever'] = extra['median_forever']
-                  game['median_playtime_2weeks'] = extra['median_2weeks']
-                  game['discount'] = extra['discount']
-                  game['peak_ccu'] = extra['ccu']
-                  game['tags'] = extra['tags']
-                else:
-                  game['user_score'] = 0
-                  game['score_rank'] = ""
-                  game['positive'] = 0
-                  game['negative'] = 0
-                  game['estimated_owners'] = "0 - 0"
-                  game['average_playtime_forever'] = 0
-                  game['average_playtime_2weeks'] = 0
-                  game['median_playtime_forever'] = 0
-                  game['median_playtime_2weeks'] = 0
-                  game['discount'] = 0
-                  game['peak_ccu'] = 0
-                  game['tags'] = []
 
               dataset[appID] = game
               gamesAdded += 1
