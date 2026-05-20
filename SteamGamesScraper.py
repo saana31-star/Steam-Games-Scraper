@@ -40,9 +40,9 @@ DEFAULT_OUTFILE  = 'games.json'
 APPLIST_FILE     = 'applist.json'
 DISCARDED_FILE   = 'discarded.json'
 NOTRELEASED_FILE = 'notreleased.json'
-DEFAULT_SLEEP    = 1.5
+DEFAULT_SLEEP    = 0.5
 DEFAULT_RETRIES  = 4
-DEFAULT_AUTOSAVE = 10
+DEFAULT_AUTOSAVE = 500
 DEFAULT_TIMEOUT  = 10
 DEFAULT_CURRENCY = 'us'
 DEFAULT_LANGUAGE = 'en'
@@ -329,7 +329,7 @@ def Scraper(dataset, notreleased, discarded, args, steam_api_key, appIDs = None)
           app, reason, name = SteamRequest(appID, min(4, args.sleep), successRequestCount, errorRequestCount, args.retries)
           if app:
             game = ParseSteamGame(app)
-            
+
             # --- START FILTER: Only 2014-2025 ---
             # Try to get the year from the release date string
             year_match = re.search(r'\b(20\d{2})\b', game['release_date'])
