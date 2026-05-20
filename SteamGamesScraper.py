@@ -329,6 +329,19 @@ def Scraper(dataset, notreleased, discarded, args, steam_api_key, appIDs = None)
           app, reason, name = SteamRequest(appID, min(4, args.sleep), successRequestCount, errorRequestCount, args.retries)
           if app:
             game = ParseSteamGame(app)
+            
+            # --- START FILTER: Only 2014-2025 ---
+            # Try to get the year from the release date string
+            year_match = re.search(r'\b(20\d{2})\b', game['release_date'])
+            release_year = int(year_match.group(1)) if year_match else 0
+            
+            if release_year < 2014 or release_year > 2025:
+                # If it's too old or in the future, discard it
+                discarded[appID] = {'name': name, 'reason': f'released_{release_year}'}
+                gamesDiscarded += 1
+                continue # This skips the rest of the loop for this game
+            # --- END FILTER ---
+
             if game['release_date'] != '':
 
               dataset[appID] = game
