@@ -1,3 +1,4 @@
+STEAM_API_KEY=C0B1106F423D006F9C54B3345FD5C3E7
 ########################################################################################################################
 # Copyright (c) Martin Bustos @FronkonGames <fronkongames@gmail.com>
 #
