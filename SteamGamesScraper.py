@@ -40,9 +40,9 @@ DEFAULT_OUTFILE  = 'games.json'
 APPLIST_FILE     = 'applist.json'
 DISCARDED_FILE   = 'discarded.json'
 NOTRELEASED_FILE = 'notreleased.json'
-DEFAULT_SLEEP    = 0.5
+DEFAULT_SLEEP    = 1.5
 DEFAULT_RETRIES  = 4
-DEFAULT_AUTOSAVE = 500
+DEFAULT_AUTOSAVE = 100
 DEFAULT_TIMEOUT  = 10
 DEFAULT_CURRENCY = 'us'
 DEFAULT_LANGUAGE = 'en'
@@ -321,7 +321,16 @@ def Scraper(dataset, notreleased, discarded, args, steam_api_key, appIDs = None)
     count = 0
 
     try:
+      # Set your target dataset size for the assignment
+      TARGET_LIMIT = 10000
+
       for appID in apps:
+        # --- TARGET CAP CHECK ---
+        if len(dataset) >= TARGET_LIMIT:
+          Log(INFO, f"Target cap of {TARGET_LIMIT} games reached! Saving dataset and exiting cleanly.")
+          break # This cleanly stops the loop and moves DOWN to the script's main saving block
+        # -------------------------
+
         if appID not in dataset and appID not in discarded:
           if args.released and appID in notreleased:
             continue
