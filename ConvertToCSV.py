@@ -40,17 +40,11 @@ def WriteString(app, key, default = ''):
     value = str(app[key]).replace('"', '').replace('\n', ' ').replace('\r', ' ').strip()
   return f'"{value}"'
 
-def WriteStringArray(app, key):
-  values = []
-  for value in app[key]:
-    if value != None:
-      values.append(value.replace('"', '').replace('\n', ' ').replace('\r', ' ').strip())
-
-  text = ','.join(values)
-  return f'"{text}"'
-
-def WriteKey(app, key, default = '0'):
-  return str(app[key]) if key in app else default
+def WriteRawValue(app, key):
+  if key in app and app[key] != None:
+    value = str(app[key]).replace('"', '').replace('\n', ' ').replace('\r', ' ').strip()
+    return f'"{value}"'
+  return '""'
 
 print(f'Convert JSON to CSV {__version__} by {__author__}.')
 parser = argparse.ArgumentParser(description='Convert JSON to CSV.')
@@ -70,47 +64,14 @@ if os.path.exists(filename):
   print(f'Dataset with {len(dataset)} games loaded.')
 
   with open('games.csv', 'w', encoding="utf-8") as fin:
+    # Included ReleaseDate as a separate column header
     header = [
       'AppID',
-      'Name',
-      'Release date',
-      'Estimated owners',
-      'Peak CCU',
-      'Required age',
-      'Price',
-      'Discount',
-      'DLC count',
-      'About the game',
-      'Supported languages',
-      'Full audio languages',
-      'Reviews',
-      'Header image',
-      'Website',
-      'Support url',
-      'Support email',
-      'Windows',
-      'Mac',
-      'Linux',
-      'Metacritic score',
-      'Metacritic url',
-      'User score',
-      'Positive',
-      'Negative',
-      'Score rank',
-      'Achievements',
-      'Recommendations',
-      'Notes',
-      'Average playtime forever',
-      'Average playtime two weeks',
-      'Median playtime forever',
-      'Median playtime two weeks',
-      'Developers',
-      'Publishers',
-      'Categories',
-      'Genres',
-      'Tags',
-      'Screenshots',
-      'Movies'
+      'Title',
+      'ReleaseDate',
+      'GameType',
+      'BasePrice',
+      'ReviewClass'
     ]
 
     fin.write(','.join(header) + '\n')
@@ -120,52 +81,19 @@ if os.path.exists(filename):
     for appID in dataset:
       app = dataset[appID]
 
+      # Maps strictly to the raw properties inside games.json
       data = f"{appID},"
       data += f"{WriteString(app, 'name')},"
-      data += f"{WriteString(app, 'release_date')},"
-      data += f"{WriteString(app, 'estimated_owners')},"
-      data += f"{WriteKey(app, 'peak_ccu')},"
-      data += f"{WriteKey(app, 'required_age')},"
-      data += f"{WriteKey(app, 'price', '0.0')},"
-      data += f"{WriteKey(app, 'discount')},"
-      data += f"{WriteKey(app, 'dlc_count')},"
-      data += f"{WriteString(app, 'about_the_game')},"
-      data += f"{WriteString(app, 'supported_languages')},"
-      data += f"{WriteString(app, 'full_audio_languages')},"
-      data += f"{WriteString(app, 'reviews')},"
-      data += f"{WriteString(app, 'header_image')},"
-      data += f"{WriteString(app, 'website')},"
-      data += f"{WriteString(app, 'support_url')},"
-      data += f"{WriteString(app, 'support_email')},"
-      data += f"{WriteKey(app, 'windows', 'False')},"
-      data += f"{WriteKey(app, 'mac', 'False')},"
-      data += f"{WriteKey(app, 'linux', 'False')},"
-      data += f"{WriteKey(app, 'metacritic_score')},"
-      data += f"{WriteString(app, 'metacritic_url')},"
-      data += f"{WriteKey(app, 'user_score')},"
-      data += f"{WriteKey(app, 'positive')},"
-      data += f"{WriteKey(app, 'negative')},"
-      data += f"{WriteString(app, 'score_rank')},"
-      data += f"{WriteKey(app, 'achievements')},"
-      data += f"{WriteKey(app, 'recommendations')},"
-      data += f"{WriteString(app, 'notes')},"
-      data += f"{WriteKey(app, 'average_playtime_forever')},"
-      data += f"{WriteKey(app, 'average_playtime_2weeks')},"
-      data += f"{WriteKey(app, 'median_playtime_forever')},"
-      data += f"{WriteKey(app, 'median_playtime_2weeks')},"
-      data += f"{WriteStringArray(app, 'developers')},"
-      data += f"{WriteStringArray(app, 'publishers')},"
-      data += f"{WriteStringArray(app, 'categories')},"
-      data += f"{WriteStringArray(app, 'genres')},"
-      data += f"{WriteStringArray(app, 'tags')},"
-      data += f"{WriteStringArray(app, 'screenshots')},"
-      data += f"{WriteStringArray(app, 'movies')}"
+      data += f"{WriteRawValue(app, 'release_date')}," # Drops in the raw release date string directly
+      data += f"{WriteRawValue(app, 'type')},"         
+      data += f"{WriteRawValue(app, 'price')},"        
+      data += f"{WriteString(app, 'reviews_class')}"
       data += "\n"
 
       fin.write(data)
       count += 1
       ProgressBar(count, total)
   
-    print('\nDone.')
+  print('\nDone. Successfully generated un-filtered games.csv mirror with Release Dates!')
 else:
   print(f'Dataset file \'{args.file}\' not found.')
